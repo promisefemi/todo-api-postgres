@@ -1,0 +1,10 @@
+POST http://localhost:9000/todos/create
+Content-Type: application/json
+
+{
+  "text": "Something todo",
+  "description": "Some Description"
+}
+
+###
+GET http://localhost:9000/todos HTTP/1.1
