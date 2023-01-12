@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 	"todo/data"
@@ -110,7 +109,6 @@ func (t *TodoHandler) MarkAsCompleted(rw http.ResponseWriter, r *http.Request) {
 	var todo data.Todo
 	err = t.DBConn.QueryRow(context.Background(), "SELECT id, text, description, completed, completedat, createdat from todos where id = $1", id).Scan(&todo.ID, &todo.Text, &todo.Description, &todo.Completed, &todo.CompletedAt, &todo.CreatedAt)
 	if err != nil {
-		log.Println(err)
 		errorResponse := data.NewErrorResponse(err, http.StatusBadRequest, "Something went wrong, please contact support")
 		data.Respond(rw, errorResponse)
 		return

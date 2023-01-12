@@ -23,6 +23,7 @@ func (e *ErrorResponse) ToJSON() ([]byte, error) {
 
 // NewErrorResponse returns a new instance of ErrorResponse
 func NewErrorResponse(cause error, status int, message string) *ErrorResponse {
+	log.Println(cause)
 	return &ErrorResponse{
 		Cause:   cause,
 		Status:  status,
