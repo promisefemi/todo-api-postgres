@@ -28,7 +28,7 @@ func main() {
 
 	http.HandleFunc("/todos", todoBase.ListAll)
 	http.HandleFunc("/todos/create", todoBase.Create)
-	http.HandleFunc("/todos/completed/", todoBase.MarkAsCompleted)
+	http.HandleFunc("/todos/complete/", todoBase.MarkAsCompleted)
 
 	fmt.Println("Server is running at localhost:9000")
 	http.ListenAndServe(":9000", nil)

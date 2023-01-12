@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	"log"
 	"net/http"
+	"time"
 	"todo/data"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type TodoHandler struct {
@@ -22,35 +24,33 @@ func (t *TodoHandler) ListAll(rw http.ResponseWriter, r *http.Request) {
 
 	todos := make([]data.Todo, 0)
 	rows, err := t.DBConn.Query(context.Background(), "SELECT id, text, description, completed, completedat, createdat from todos")
-	defer rows.Close()
 	if err != nil {
-		fmt.Println(err)
-		rw.WriteHeader(http.StatusInternalServerError)
+		errorResponse := data.NewErrorResponse(err, http.StatusInternalServerError, "Internal server error")
+		data.Respond(rw, errorResponse)
 		return
 	}
+	defer rows.Close()
 
 	for rows.Next() {
-		fmt.Println("Count")
 		var todo data.Todo
 		err = rows.Scan(&todo.ID, &todo.Text, &todo.Description, &todo.Completed, &todo.CompletedAt, &todo.CreatedAt)
 		if err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			log.Fatal(err)
+			errorResponse := data.NewErrorResponse(err, http.StatusInternalServerError, "Internal server error")
+			data.Respond(rw, errorResponse)
+			return
 		}
 		todos = append(todos, todo)
-
 	}
 	if rows.Err() != nil {
-		fmt.Println(err)
-	}
-	byteTodos, err := json.Marshal(todos)
-	if err != nil {
-		fmt.Printf("error marshalling json: %s", err)
-		rw.WriteHeader(http.StatusInternalServerError)
+		errorResponse := data.NewErrorResponse(err, http.StatusInternalServerError, "Internal server error")
+		data.Respond(rw, errorResponse)
 		return
 	}
-	rw.Header().Add("Content-Type", "application/json")
-	_, _ = rw.Write(byteTodos)
+
+	todoPayload := &data.Response{
+		Data: todos,
+	}
+	data.Respond(rw, todoPayload)
 }
 
 func (t *TodoHandler) Create(rw http.ResponseWriter, r *http.Request) {
@@ -59,33 +59,66 @@ func (t *TodoHandler) Create(rw http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&todo)
 	if err != nil {
-		fmt.Println(err)
-		rw.WriteHeader(http.StatusInternalServerError)
-		_, _ = rw.Write([]byte("Please check request body"))
+		errResponse := data.NewErrorResponse(err, http.StatusInternalServerError, "Please check request body")
+		data.Respond(rw, errResponse)
+		return
 	}
 	if _, err := todo.Validate(); err != nil {
-		fmt.Println(err)
-		rw.WriteHeader(http.StatusInternalServerError)
-		_, _ = rw.Write([]byte("Please check request body"))
+		errResponse := data.NewErrorResponse(err, http.StatusBadRequest, err.Error())
+		data.Respond(rw, errResponse)
+		return
 	}
 
 	_, err = t.DBConn.Exec(context.Background(), "INSERT INTO todos (text, description) VALUES ($1,$2)", todo.Text, todo.Description)
 	if err != nil {
-		fmt.Println(err)
-		rw.WriteHeader(http.StatusInternalServerError)
+		errResponse := data.NewErrorResponse(err, http.StatusInternalServerError, "internal server error")
+		data.Respond(rw, errResponse)
 		return
 	}
-	byteTodo, err := json.Marshal(todo)
-	if err != nil {
-		fmt.Printf("error marshalling json: %s", err)
-		rw.WriteHeader(http.StatusInternalServerError)
-		return
+
+	todoResponse := &data.Response{
+		Data: todo,
 	}
-	rw.Header().Add("Content-Type", "application/json")
-	_, _ = rw.Write(byteTodo)
-	return
+	data.Respond(rw, todoResponse)
 }
 
 func (t *TodoHandler) MarkAsCompleted(rw http.ResponseWriter, r *http.Request) {
 
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		errorResponse := data.NewErrorResponse(fmt.Errorf("no ID"), http.StatusBadRequest, "ID not found in query parameter")
+		data.Respond(rw, errorResponse)
+		return
+	}
+
+	var rowID int
+
+	err := t.DBConn.QueryRow(context.Background(), "SELECT id from todos where id = $1", id).Scan(&rowID)
+	if err != nil {
+		errorResponse := data.NewErrorResponse(err, http.StatusBadRequest, "Cannot find a todo with that id")
+		data.Respond(rw, errorResponse)
+		return
+	}
+
+	_, err = t.DBConn.Exec(context.Background(), "UPDATE todos set completed = $1, completedat = $2 where id = $3", true, time.Now(), id)
+	if err != nil {
+		errorResponse := data.NewErrorResponse(err, http.StatusInternalServerError, "Unable to complete todo, please contact support")
+		data.Respond(rw, errorResponse)
+		return
+	}
+
+	var todo data.Todo
+	err = t.DBConn.QueryRow(context.Background(), "SELECT id, text, description, completed, completedat, createdat from todos where id = $1", id).Scan(&todo.ID, &todo.Text, &todo.Description, &todo.Completed, &todo.CompletedAt, &todo.CreatedAt)
+	if err != nil {
+		log.Println(err)
+		errorResponse := data.NewErrorResponse(err, http.StatusBadRequest, "Something went wrong, please contact support")
+		data.Respond(rw, errorResponse)
+		return
+	}
+
+	todoResponse := &data.Response{
+		Message: "Todo completed",
+		Data:    todo,
+	}
+	data.Respond(rw, todoResponse)
 }
