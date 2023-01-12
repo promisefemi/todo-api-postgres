@@ -13,9 +13,9 @@ The app is very simple.
 
 
 ## Technologies in use
-- `Language: ` [Golang](https://github.com/golang/go)
-- `Database: ` [Postgres](https://github.com/postgres/postgres)
-- `Driver: ` [PGX](https://github.com/jackc/pgx)
+- `Language:`  [Golang](https://github.com/golang/go)
+- `Database:`  [Postgres](https://github.com/postgres/postgres)
+- `Driver:`  [PGX](https://github.com/jackc/pgx)
 
 ## Usage
 ### Prerequisite:
